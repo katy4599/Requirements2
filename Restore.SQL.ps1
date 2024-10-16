@@ -14,63 +14,51 @@ Try
     # Set a variable equal to the name of the Database
     $databaseName = 'ClientDB'
 
-    # Create an object to reference the Database
-    $databaseObject = New-Object -TypeName Microsoft.SqlServer.Smo.Database -ArgumentList $sqlServerObject, $databaseName
-
-        if ($databaseObject)
+        if ($sqlServerObject)
             {
-                $sqlServerObject.KillDatabase($databaseName)
-                $sqlServerObject.DropDatabase($databaseName)
-                Write-Host "The ClientDB already existed and has been deleted"
-                # Call the create method on the database object to create it
-                $databaseObject.Create()
+                Invoke-Sqlcmd -ServerInstance $sqlServerInstaneName -Query "DROP DATABASE [$databaseName]"
+                Write-Host "The ClientDB already has been deleted"
+                Invoke-Sqlcmd -ServerInstance $sqlServerInstaneName -Query "CREATE DATABASE [$databaseName]"
                 Write-Host -foregroundColor Cyan "The ClientDB has been created"
             }
         else
             {
-                # Call the create method on the database object to create it
-                $databaseObject.Create()
+                # Use the CREATE DATABASE query on the database object to create it
+                Invoke-Sqlcmd -ServerInstance $sqlServerInstaneName -Query "CREATE DATABASE [$databaseName]"
                 Write-Host -foregroundColor Cyan "The ClientDB has been created"
             }
 
-    $tableName = 'Client_A_Contacts'
+    # Create a variable to hold the table name
+    $tableName = 'ClientData'
     
-    CREATE TABLE [$databaseName].[$databaseObject].[$tableName]
-    (
-        First_Name varchar(100),
-        Last_Name varchar(100),
-        City varchar (50),
-        County varchar(50),
-        Zip varchar(20),
-        OfficePhone varchar(15),
-        MobilePhone varchar(15)
-    )
+    # Create the table 
+    Invoke-Sqlcmd -ServerInstance $sqlServerInstaneName -Database $databaseName -InputFile $PSScriptRoot\CreateTable_ClientData.sql
 
     $Insert = "INSERT INTO [$($tableName)] (first_name, last_name, city, county, zip, officePhone, mobilePhone)"
 
     Write-Host -foregroundColor Cyan "The table $($tableName) has been created"
 
-    $NewCustomerLeads = Import-Csv $PSScriptRoot\NewCustomerLeads.Csv
+    # Create variable to hold the file import
+    $NewClientData = Import-Csv $PSScriptRoot\NewClientData.csv
 
-    ForEach($NewLead in $NewCustomerLeads)
+    ForEach($NewClient in $NewClientData)
     {
         $Values = "VALUES ( `
-                        '$($NewLead.first_name)', `
-                        '$($NewLead.last_name)', `
-                        '$($NewLead.city)', `
-                        '$($NewLead.county)', `
-                        '$($NewLead.zip)', `
-                        '$($NewLead.officePhone)', `
-                        '$($NewLead.mobilePhone)')"
+                        '$($NewClient.first_name)', `
+                        '$($NewClient.last_name)', `
+                        '$($NewClient.city)', `
+                        '$($NewClient.county)', `
+                        '$($NewClient.zip)', `
+                        '$($NewClient.officePhone)', `
+                        '$($NewClient.mobilePhone)')"
 
         $query = $Insert + $Values
         Invoke-Sqlcmd -Database $databaseName -ServerInstance $sqlServerInstaneName -Query $query
     }
 
-    Invoke-Sqlcmd -Database ClientDB -ServerInstance
+    Invoke-Sqlcmd -Database ClientDB -ServerInstance .\SQLEXPRESS -Query 'SELECT * FROM dbo.ClientData' > .\SqlResults.txt
     }
 Catch
 {
 $_
 }
-
